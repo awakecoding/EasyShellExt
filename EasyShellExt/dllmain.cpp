@@ -4,7 +4,6 @@
 #include "shellext_h.h"
 #include "shellext_i.c"
 #include "Utils.h"
-#include "LoggerHelper.h"
 #include <ShlObj.h>
 
 HMODULE gCurrentModule = NULL;
@@ -23,26 +22,17 @@ STDAPI DllGetClassObject(_In_ REFCLSID clsid, _In_ REFIID riid, _Outptr_ LPVOID*
 
     HRESULT hr = _AtlModule.DllGetClassObject(clsid, riid, ppv);
 
-    if (hr == CLASS_E_CLASSNOTAVAILABLE)
-        ESX_LOG(ERROR) << __FUNCTION__ << "(), ClassFactory " << clsid_str << " not found!";
-    else if (FAILED(hr))
-        ESX_LOG(ERROR) << __FUNCTION__ << "(), unknown interface " << riid_str;
-    else
-        ESX_LOG(INFO) << __FUNCTION__ << "(), found interface " << riid_str << ", ppv=" << esx::ToHexString(*ppv);
     return hr;
 }
 
 // Used to determine whether the DLL can be unloaded by OLE.
 STDAPI DllCanUnloadNow(void) {
-    ESX_LOG(INFO) << __FUNCTION__ << "() " << esx::GetProcessContextDesc();
-
     HRESULT hr = _AtlModule.DllCanUnloadNow();
 
     if (hr == S_OK) {
-        ESX_LOG(INFO) << __FUNCTION__ << "() -> Yes";
         return S_OK;
     }
-    ESX_LOG(INFO) << __FUNCTION__ << "() -> No.";
+
     return S_FALSE;
 }
 

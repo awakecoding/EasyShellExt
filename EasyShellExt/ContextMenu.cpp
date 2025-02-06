@@ -3,12 +3,10 @@
 #include <shellapi.h>
 #include "StringEncode.h"
 #include "Utils.h"
-#include "LoggerHelper.h"
 
 OBJECT_ENTRY_AUTO(CLSID_EasyShellExt, ContextMenu)
 
 ContextMenu::ContextMenu() {
-    ESX_LOG(INFO) << __FUNCTION__ << "(), new instance " << esx::ToHexString(this);
 
 #if SA_QUERYINTERFACE_IMPL == 0
     // reference counter must be initialized to 0 even if we are actually creating an instance. 
@@ -58,10 +56,6 @@ HRESULT STDMETHODCALLTYPE ContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO pici)
         verb = pici->lpVerb;
     }
 
-    ESX_LOG(INFO) << __FUNCTION__ << "(), pici->cbSize=" << structName
-                  << ", pici->fMask=" << pici->fMask
-                  << ", pici->lpVerb=" << verb << " this=" << esx::ToHexString(this);
-
     //validate
     if (!IS_INTRESOURCE(pici->lpVerb))
         return E_INVALIDARG;  //don't know what to do with pici->lpVerb
@@ -76,12 +70,6 @@ HRESULT STDMETHODCALLTYPE ContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO pici)
 HRESULT STDMETHODCALLTYPE ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uType, UINT* pReserved, CHAR* pszName, UINT cchMax) {
     std::string typeStr = esx::GetGetCommandStringFlags(uType);
     std::string typeHex = esx::StringPrintf("0x%08x", uType);
-
-    // only show this log in verbose mode
-    ESX_LOG(INFO) << __FUNCTION__ << "(), idCmd=" << idCmd
-                  << ", cchMax=" << cchMax
-                  << " this=" << esx::ToHexString(this)
-                  << ", type=" << typeHex << ":" << typeStr;
 
     UINT targetCommandOffset = (UINT)idCmd;  // matches the command_id offset (command id of the selected menu substracted by command id of the first menu)
 
@@ -127,7 +115,6 @@ HRESULT STDMETHODCALLTYPE ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uTy
         } break;
     }
 
-    ESX_LOG(ERROR) << __FUNCTION__ << "(), unknown flags: " << uType;
     return S_FALSE;
 }
 
