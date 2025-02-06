@@ -14,7 +14,6 @@ HMODULE gCurrentModule = NULL;
 class EasyShellExtModule : public ATL::CAtlDllModuleT<EasyShellExtModule> {
    public:
     DECLARE_LIBID(LIBID_EASYSHELLEXTENSIONLib)
-    //DECLARE_REGISTRY_APPID_RESOURCEID(IDR_EASYSHELLEXT, "{EB26EA8E-3B98-4DED-AE59-255C3BA725C3}")
 };
 
 class EasyShellExtModule _AtlModule;

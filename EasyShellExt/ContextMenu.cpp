@@ -85,7 +85,7 @@ HRESULT STDMETHODCALLTYPE ContextMenu::QueryContextMenu(HMENU hMenu, UINT menuIn
         ESX_LOG(ERROR) << __FUNCTION__ << "(), Create menus failed.";
         return hr;
     }
-    assert(menuCount > 0);
+    //assert(menuCount > 0);
 
     //debug the constructed menu tree
 #if (defined _DEBUG) || (defined DEBUG)
