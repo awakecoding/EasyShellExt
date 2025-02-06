@@ -6,7 +6,6 @@
 #include "Utils.h"
 #include "LoggerHelper.h"
 #include <ShlObj.h>
-#include "RegisterHelper.h"
 #include "CustomImpl.h"
 
 HMODULE gCurrentModule = NULL;
@@ -80,52 +79,6 @@ STDAPI DllUnregisterServer(void) {
     }
 
     return hr;
-}
-
-STDAPI_(bool)
-IsElevated() {
-    struct ADMIN {
-        BOOL isAdmin = FALSE;
-        PSID pAdminSID = nullptr;  // AdministratorsGroup
-        ~ADMIN() {
-            if (pAdminSID)
-                ::FreeSid(pAdminSID);
-        }
-    } admin;
-
-    // Allocate and initialize a SID of the administrators group.
-    SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
-    if (::AllocateAndInitializeSid(&NtAuthority, 2,
-                                   SECURITY_BUILTIN_DOMAIN_RID,
-                                   DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0,
-                                   &admin.pAdminSID)) {
-        // Determine whether the SID of administrators group is enabled
-        // in the primary access token of the process.
-        if (admin.pAdminSID)
-            ::CheckTokenMembership(nullptr, admin.pAdminSID, &admin.isAdmin);
-    }
-    return admin.isAdmin;
-}
-
-STDAPI_(bool)
-IsRegister() {
-    return esx::RegisterHelper::IsRegistered();
-}
-
-STDAPI_(bool)
-RegisterShellExt() {
-    WCHAR szDllPath[MAX_PATH] = {0};
-    if (GetModuleFileNameW(gCurrentModule, szDllPath, MAX_PATH) == 0) {
-        ESX_LOG(ERROR) << __FUNCTION__ << "(), unable to get dll path!";
-        return false;
-    }
-
-    return esx::RegisterHelper::Register(szDllPath, COMPANY_NAME, SHELL_EXT_NAME);
-}
-
-STDAPI_(bool)
-UnregisterShellExt() {
-    return esx::RegisterHelper::Unregister(SHELL_EXT_NAME);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {

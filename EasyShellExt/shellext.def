@@ -4,7 +4,3 @@ EXPORTS
     DllCanUnloadNow     PRIVATE
     DllRegisterServer   PRIVATE
     DllUnregisterServer PRIVATE
-    IsElevated          PRIVATE
-    IsRegister          PRIVATE
-    RegisterShellExt            PRIVATE
-    UnregisterShellExt          PRIVATE
