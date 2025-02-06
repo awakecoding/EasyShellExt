@@ -121,7 +121,106 @@ function Unregister-ShellExtension {
 }
 ```
 
-```pwsh
+```powershell
 Register-ShellExtension -FilePath "$PWD/EasyShellExt.dll" -CLSID "{B0D35103-86A1-471C-A653-E130E3439A3B}" -ExtensionName "EasyShellExt-awakecoding"
 Unregister-ShellExtension -CLSID "{B0D35103-86A1-471C-A653-E130E3439A3B}"
+```
+
+```powershell
+function Register-ExplorerCommand {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CLSID,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Verb,
+
+        [Parameter(Mandatory = $false)]
+        [string]$MenuText = "Run Elevated"
+    )
+
+    # Validate the DLL Path
+    if (!(Test-Path $FilePath)) {
+        Write-Error "ERROR: DLL path '$FilePath' does not exist. Exiting."
+        return
+    }
+
+    Write-Host "✅ DLL Path verified: $FilePath" -ForegroundColor Green
+
+    # Register CLSID in HKEY_CLASSES_ROOT\CLSID
+    $clsidPathHKCR = "Registry::HKEY_CLASSES_ROOT\CLSID\$CLSID"
+    if (Test-Path $clsidPathHKCR) {
+        Write-Host "⚠️ CLSID already exists in registry: $CLSID" -ForegroundColor Yellow
+    } else {
+        Write-Host "🆕 Registering CLSID: $CLSID" -ForegroundColor Cyan
+        New-Item -Path $clsidPathHKCR -Force | Out-Null
+        Set-ItemProperty -Path $clsidPathHKCR -Name "(Default)" -Value "PedmShellExt"
+        Write-Host "✅ CLSID registered in HKCR" -ForegroundColor Green
+    }
+
+    # Register InprocServer32
+    $inprocPathHKCR = "$clsidPathHKCR\InprocServer32"
+    if (!(Test-Path $inprocPathHKCR)) {
+        Write-Host "🆕 Registering InprocServer32..." -ForegroundColor Cyan
+        New-Item -Path $inprocPathHKCR -Force | Out-Null
+        Set-ItemProperty -Path $inprocPathHKCR -Name "(Default)" -Value $FilePath
+        Set-ItemProperty -Path $inprocPathHKCR -Name "ThreadingModel" -Value "Apartment"
+        Write-Host "✅ InprocServer32 registered" -ForegroundColor Green
+    }
+
+    # Register Explorer Command (Use REG.EXE to handle '*')
+    $commandPath = "HKEY_CLASSES_ROOT\*\shell\$Verb"
+    Write-Host "🆕 Registering ExplorerCommand at: $commandPath" -ForegroundColor Cyan
+
+    # First, delete any existing entry
+    cmd.exe /c "reg delete `"$commandPath`" /f" | Out-Null
+    Start-Sleep -Milliseconds 500  # Allow Windows to release the lock
+
+    # Now add the new command
+    cmd.exe /c "reg add `"$commandPath`" /f /ve /d `"$MenuText`"" | Out-Null
+    cmd.exe /c "reg add `"$commandPath`" /f /v ExplorerCommandHandler /d `"$CLSID`"" | Out-Null
+
+    Write-Host "✅ ExplorerCommand registered successfully!" -ForegroundColor Green
+}
+
+function Unregister-ExplorerCommand {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$CLSID,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Verb
+    )
+
+    Write-Host "Unregistering Classic ExplorerCommand with CLSID: $CLSID" -ForegroundColor Yellow
+
+    # Remove CLSID registration
+    $clsidPathHKCR = "Registry::HKEY_CLASSES_ROOT\CLSID\$CLSID"
+    if (Test-Path $clsidPathHKCR) {
+        Remove-Item -Path $clsidPathHKCR -Force -Recurse -ErrorAction SilentlyContinue
+        Write-Host "✅ Removed CLSID from HKCR" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️ CLSID not found in HKCR, skipping." -ForegroundColor Yellow
+    }
+
+    # Remove ExplorerCommand registry entry (Use REG.EXE)
+    $commandPath = "HKEY_CLASSES_ROOT\*\shell\$Verb"
+    Write-Host "🗑 Removing ExplorerCommand at: $commandPath" -ForegroundColor Cyan
+
+    cmd.exe /c "reg delete `"$commandPath`" /f" | Out-Null
+    Start-Sleep -Milliseconds 500  # Ensure registry updates are processed
+
+    Write-Host "✅ Classic ExplorerCommand unregistered successfully!" -ForegroundColor Cyan
+}
+```
+
+```powershell
+Register-ExplorerCommand -FilePath "$PWD/devolutions_pedm_shell_ext.dll" -CLSID "{0ba604fd-4a5a-4abb-92b1-09ac5c3bf356}" -Verb "RunElevated" -MenuText "Run Elevated"
+
+Unregister-ExplorerCommand -CLSID "{0ba604fd-4a5a-4abb-92b1-09ac5c3bf356}" -Verb "RunElevated"
 ```
