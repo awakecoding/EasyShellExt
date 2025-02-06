@@ -4,7 +4,6 @@
 #include "StringEncode.h"
 #include "Utils.h"
 #include "LoggerHelper.h"
-#include "CustomImpl.h"
 
 OBJECT_ENTRY_AUTO(CLSID_EasyShellExt, ContextMenu)
 
@@ -71,7 +70,7 @@ HRESULT STDMETHODCALLTYPE ContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO pici)
 
     //From this point, it is safe to use class members without other threads interference
     CriticalSectionGuard cs_guard(&cs_);
-    return esx::InvokeMenuCommand(targetCommandOffset);
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uType, UINT* pReserved, CHAR* pszName, UINT cchMax) {
@@ -92,14 +91,10 @@ HRESULT STDMETHODCALLTYPE ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uTy
     std::string ansi;
 
     if (uType == GCS_HELPTEXTA || uType == GCS_HELPTEXTW) {
-        if (!esx::GetCommandHelpText(targetCommandOffset, w)) {
-            return S_OK;
-        }
+        return S_OK;
     }
     else if (uType == GCS_VERBA || uType == GCS_VERBW) {
-        if (!esx::GetCommandVerb(targetCommandOffset, w)) {
-            return S_OK;
-        }
+        return S_OK;
     }
 
     //Build up tooltip string

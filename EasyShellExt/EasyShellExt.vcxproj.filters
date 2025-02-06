@@ -42,12 +42,6 @@
     <ClInclude Include="Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CustomImpl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WinRegistry.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -72,12 +66,6 @@
       <Filter>Source FIles</Filter>
     </ClCompile>
     <ClCompile Include="Utils.cpp">
-      <Filter>Source FIles</Filter>
-    </ClCompile>
-    <ClCompile Include="CustomImpl.cpp">
-      <Filter>Source FIles</Filter>
-    </ClCompile>
-    <ClCompile Include="WinRegistry.cpp">
       <Filter>Source FIles</Filter>
     </ClCompile>
   </ItemGroup>

@@ -6,7 +6,6 @@
 #include "Utils.h"
 #include "LoggerHelper.h"
 #include <ShlObj.h>
-#include "CustomImpl.h"
 
 HMODULE gCurrentModule = NULL;
 
