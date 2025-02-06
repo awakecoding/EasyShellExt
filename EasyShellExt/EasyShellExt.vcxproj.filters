@@ -27,9 +27,6 @@
     <ClInclude Include="CriticalSection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SelectionContext.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -63,9 +60,6 @@
       <Filter>Source FIles</Filter>
     </ClCompile>
     <ClCompile Include="CriticalSection.cpp">
-      <Filter>Source FIles</Filter>
-    </ClCompile>
-    <ClCompile Include="SelectionContext.cpp">
       <Filter>Source FIles</Filter>
     </ClCompile>
     <ClCompile Include="LoggerHelper.cpp">

@@ -26,75 +26,16 @@ ContextMenu::ContextMenu() {
 ContextMenu::~ContextMenu() {
 }
 
-HRESULT STDMETHODCALLTYPE ContextMenu::QueryContextMenu(HMENU hMenu, UINT menuIndex, UINT idCmdFirst, UINT idCmdLast, UINT uFlags) {
-    std::string flags_str = esx::GetQueryContextMenuFlags(uFlags);
-    std::string flags_hex = esx::StringPrintf("0x%08x", uFlags);
+HRESULT STDMETHODCALLTYPE ContextMenu::QueryContextMenu(HMENU hMenu, UINT menuIndex, UINT idCmdFirst, UINT idCmdLast, UINT uFlags)
+{
+    // Only allow standard right-click (not in other modes like drag & drop)
+    if (uFlags & CMF_DEFAULTONLY)
+        return S_OK;
 
-    ESX_LOG(INFO) << __FUNCTION__ << "(), hMenu=" << esx::StringPrintf("0x%08x", hMenu).c_str()
-                  << ",count=" << GetMenuItemCount(hMenu)
-                  << ", menuIndex=" << menuIndex
-                  << ", idCmdFirst=" << idCmdFirst
-                  << ", idCmdLast=" << idCmdLast
-                  << ", flags=" << flags_hex << "=(" << flags_str << ")"
-                  << " this=" << esx::ToHexString(this);
+    // Insert a new menu item for "Run Elevated"
+    InsertMenu(hMenu, menuIndex, MF_BYPOSITION, idCmdFirst, L"Run Elevated");
 
-    //https://docs.microsoft.com/en-us/windows/desktop/shell/how-to-implement-the-icontextmenu-interface
-
-    //From this point, it is safe to use class members without other threads interference
-    CriticalSectionGuard cs_guard(&cs_);
-
-    //Note on flags...
-    //Right-click on a file or directory with Windows Explorer on the right area:  flags=0x00020494=132244(dec)=(CMF_NORMAL|CMF_EXPLORE|CMF_CANRENAME|CMF_ITEMMENU|CMF_ASYNCVERBSTATE)
-    //Right-click on the empty area      with Windows Explorer on the right area:  flags=0x00020424=132132(dec)=(CMF_NORMAL|CMF_EXPLORE|CMF_NODEFAULT|CMF_ASYNCVERBSTATE)
-    //Right-click on a directory         with Windows Explorer on the left area:   flags=0x00000414=001044(dec)=(CMF_NORMAL|CMF_EXPLORE|CMF_CANRENAME|CMF_ASYNCVERBSTATE)
-    //Right-click on a drive             with Windows Explorer on the left area:   flags=0x00000414=001044(dec)=(CMF_NORMAL|CMF_EXPLORE|CMF_CANRENAME|CMF_ASYNCVERBSTATE)
-    //Right-click on the empty area      on the Desktop:                           flags=0x00020420=132128(dec)=(CMF_NORMAL|CMF_NODEFAULT|CMF_ASYNCVERBSTATE)
-    //Right-click on a directory         on the Desktop:                           flags=0x00020490=132240(dec)=(CMF_NORMAL|CMF_CANRENAME|CMF_ITEMMENU|CMF_ASYNCVERBSTATE)
-
-    //Filter out queries that have nothing selected.
-    //This can happend if user is copy & pasting files (using CTRL+C and CTRL+V)
-    //and if the shell extension is registered as a DragDropHandlers.
-    if (selectionCtx_.GetElements().size() == 0) {
-        //Don't know what to do with this
-        ESX_LOG(INFO) << __FUNCTION__ << "(), skipped, nothing is selected.";
-        return MAKE_HRESULT(SEVERITY_SUCCESS, FACILITY_NULL, 0);  //nothing inserted
-    }
-
-    // Filter out queries that are called twice for the same directory.
-    if (hMenu == previousMenu_) {
-        //Issue #6 - Right-click on a directory with Windows Explorer in the left panel shows the menus twice.
-        //Issue #31 - Error in logs for CContextMenu::GetCommandString().
-        //Using a static variable is a poor method for solving the issue but it is a "good enough" strategy.
-        ESX_LOG(INFO) << __FUNCTION__ << "(), skipped, QueryContextMenu() called twice and menu is already populated once.";
-        return MAKE_HRESULT(SEVERITY_SUCCESS, FACILITY_NULL, 0);  //nothing inserted
-    }
-
-    //Remember current menu to prevent issues calling twice QueryContextMenu()
-    previousMenu_ = hMenu;
-
-    //Log what is selected by the user
-    const esx::StringList& elements = selectionCtx_.GetElements();
-    size_t numSelectedTotal = elements.size();
-    int numFiles = selectionCtx_.GetNumFiles();
-    int numDirectories = selectionCtx_.GetNumDirectories();
-    ESX_LOG(INFO) << __FUNCTION__ << "(), SelectionContext have " << numSelectedTotal << " element(s): " << numFiles << " files and " << numDirectories << " directories.";
-
-    USHORT menuCount = 0;
-    HRESULT hr = esx::CreateMenus(hMenu, idCmdFirst, menuIndex, menuCount);
-    if (FAILED(hr)) {
-        ESX_LOG(ERROR) << __FUNCTION__ << "(), Create menus failed.";
-        return hr;
-    }
-    //assert(menuCount > 0);
-
-    //debug the constructed menu tree
-#if (defined _DEBUG) || (defined DEBUG)
-    std::string menuTree = esx::GetMenuTree(hMenu, 2);
-    ESX_LOG(INFO) << __FUNCTION__ << "(), Menu tree:\n" << menuTree.c_str();
-#endif
-
-    hr = MAKE_HRESULT(SEVERITY_SUCCESS, FACILITY_NULL, menuCount);
-    return hr;
+    return MAKE_HRESULT(SEVERITY_SUCCESS, 0, USHORT(1));  // Return success with 1 added item
 }
 
 HRESULT STDMETHODCALLTYPE ContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO pici) {
@@ -130,7 +71,7 @@ HRESULT STDMETHODCALLTYPE ContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO pici)
 
     //From this point, it is safe to use class members without other threads interference
     CriticalSectionGuard cs_guard(&cs_);
-    return esx::InvokeMenuCommand(targetCommandOffset, selectionCtx_);
+    return esx::InvokeMenuCommand(targetCommandOffset);
 }
 
 HRESULT STDMETHODCALLTYPE ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uType, UINT* pReserved, CHAR* pszName, UINT cchMax) {
@@ -195,89 +136,40 @@ HRESULT STDMETHODCALLTYPE ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uTy
     return S_FALSE;
 }
 
-HRESULT STDMETHODCALLTYPE ContextMenu::Initialize(LPCITEMIDLIST pIDFolder, LPDATAOBJECT pDataObj, HKEY hRegKey) {
-    //From this point, it is safe to use class members without other threads interference
-    CriticalSectionGuard cs_guard(&cs_);
+HRESULT STDMETHODCALLTYPE ContextMenu::Initialize(
+    LPCITEMIDLIST pIDFolder,
+    LPDATAOBJECT pDataObj,
+    HKEY hRegKey) {
+    if (!pDataObj)
+        return E_INVALIDARG;
 
-    selectionCtx_.Clear();
-    isBackGround_ = false;
+    // Get the selected file path
+    FORMATETC fmt = {CF_HDROP, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+    STGMEDIUM stg;
 
-    esx::StringList files;
+    if (FAILED(pDataObj->GetData(&fmt, &stg)))
+        return E_FAIL;
 
-    // Did we clicked on a folder's background or the desktop directory?
-    if (pIDFolder) {
-        ESX_LOG(INFO) << __FUNCTION__ << "(), User right-clicked on a background directory.";
+    HDROP hDrop = (HDROP)GlobalLock(stg.hGlobal);
+    if (!hDrop)
+        return E_FAIL;
 
-        wchar_t szPath[2 * MAX_PATH] = {0};
-
-        if (SHGetPathFromIDListW(pIDFolder, szPath)) {
-            if (szPath[0] != '\0') {
-                std::string pathA = esx::StringEncode::UnicodeToAnsi(szPath);
-                ESX_LOG(INFO) << __FUNCTION__ << "(), Found directory '" << pathA << "'.";
-                isBackGround_ = true;
-                files.push_back(pathA);
-            }
-            else {
-                ESX_LOG(WARNING) << __FUNCTION__ << "(), found empty path in pIDFolder.";
-                return E_INVALIDARG;
-            }
+    wchar_t filePath[MAX_PATH] = {0};
+    if (DragQueryFileW(hDrop, 0, filePath, MAX_PATH)) {
+        // Check if the file is an .exe
+        std::wstring extension = wcsrchr(filePath, L'.');
+        if (!_wcsicmp(extension.c_str(), L".exe")) {
+            std::wstring selectedFile_ = filePath;  // Store the file for later use
         }
         else {
-            ESX_LOG(ERROR) << __FUNCTION__ << "(), SHGetPathFromIDList() has failed.";
-            return E_INVALIDARG;
-        }
-    }
-
-    // User clicked on one or more file or directory
-    else if (pDataObj) {
-        ESX_LOG(INFO) << __FUNCTION__ << "(), User right-clicked on selected files/directories.";
-
-        FORMATETC fmt = {CF_HDROP, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
-        STGMEDIUM stg = {TYMED_HGLOBAL};
-        HDROP hDropInfo;
-
-        // The selected files are expected to be in HDROP format.
-        if (FAILED(pDataObj->GetData(&fmt, &stg))) {
-            ESX_LOG(WARNING) << __FUNCTION__ << "(), selected files are not in HDROP format.";
-            return E_INVALIDARG;
-        }
-
-        // Get a locked pointer to the files data.
-        hDropInfo = (HDROP)GlobalLock(stg.hGlobal);
-        if (NULL == hDropInfo) {
+            GlobalUnlock(stg.hGlobal);
             ReleaseStgMedium(&stg);
-            ESX_LOG(ERROR) << __FUNCTION__ << "(), failed to get lock on selected files.";
-            return E_INVALIDARG;
+            return E_FAIL;  // Prevent menu from appearing
         }
-
-        UINT numFiles = DragQueryFileW(hDropInfo, 0xFFFFFFFF, NULL, 0);
-        ESX_LOG(INFO) << __FUNCTION__ << "(), User right-clicked on " << numFiles << " files/directories.";
-
-        // For each files
-        for (UINT i = 0; i < numFiles; i++) {
-            UINT length = DragQueryFileW(hDropInfo, i, NULL, 0);
-
-            // Allocate a temporary buffer
-            std::wstring path(length, '\0');
-            if (path.size() != length)
-                continue;
-            size_t num_characters = size_t(length) + 1;
-
-            // Copy the element into the temporary buffer
-            DragQueryFileW(hDropInfo, i, (wchar_t*)path.data(), (UINT)num_characters);
-
-            //add the new file
-            std::string pathA = esx::StringEncode::UnicodeToAnsi(path);
-            ESX_LOG(INFO) << __FUNCTION__ << "(), Found file/directory #" << esx::StringPrintf("%03d", i) << ": '" << pathA << "'.";
-            files.push_back(pathA);
-        }
-
-        GlobalUnlock(stg.hGlobal);
-        ReleaseStgMedium(&stg);
     }
 
-    //update the selection context
-    selectionCtx_.SetElements(files);
+    GlobalUnlock(stg.hGlobal);
+    ReleaseStgMedium(&stg);
 
-    return S_OK;
+    return S_OK;  // Allow menu to appear
 }

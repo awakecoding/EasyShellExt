@@ -41,7 +41,7 @@ bool GetCommandVerb(UINT targetCommandOffset, std::wstring& verb) {
     return false;
 }
 
-HRESULT InvokeMenuCommand(UINT targetCommandOffset, const SelectionContext& selectionCtx) {
+HRESULT InvokeMenuCommand(UINT targetCommandOffset) {
     HRESULT hr = E_FAIL;
     if (targetCommandOffset == (UINT)CMD_RUN_ELEVATED) {
     }

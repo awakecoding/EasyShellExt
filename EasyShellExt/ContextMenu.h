@@ -13,7 +13,6 @@
 #include "shellext_i.c"
 
 #include "CriticalSection.h"
-#include "SelectionContext.h"
 
 class ATL_NO_VTABLE ContextMenu : public CComObjectRootEx<CComSingleThreadModel>,
                                   public CComCoClass<ContextMenu, &CLSID_EasyShellExt>,
@@ -48,6 +47,5 @@ class ATL_NO_VTABLE ContextMenu : public CComObjectRootEx<CComSingleThreadModel>
     ULONG refCount_;
     bool isBackGround_;
     HMENU previousMenu_;
-    esx::SelectionContext selectionCtx_;
 };
 #endif  // !SHELL_EXT_CONTEXT_MENU_H_
