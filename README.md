@@ -140,7 +140,10 @@ function Register-ExplorerCommand {
         [string]$Verb,
 
         [Parameter(Mandatory = $false)]
-        [string]$MenuText = "Run Elevated"
+        [string]$MenuText = "Run Elevated",
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$Extensions = @(".exe", ".msi", ".lnk", ".ps1", ".bat")  # Restrict to these
     )
 
     # Validate the DLL Path
@@ -172,19 +175,36 @@ function Register-ExplorerCommand {
         Write-Host "✅ InprocServer32 registered" -ForegroundColor Green
     }
 
-    # Register Explorer Command (Use REG.EXE to handle '*')
-    $commandPath = "HKEY_CLASSES_ROOT\*\shell\$Verb"
-    Write-Host "🆕 Registering ExplorerCommand at: $commandPath" -ForegroundColor Cyan
+    # Register Explorer Command for Specific File Extensions
+    foreach ($ext in $Extensions) {
+        $extKeyPath = "Registry::HKEY_CLASSES_ROOT\$ext"
+        $commandPath = "Registry::HKEY_CLASSES_ROOT\$ext\shell\$Verb"
 
-    # First, delete any existing entry
-    cmd.exe /c "reg delete `"$commandPath`" /f" | Out-Null
-    Start-Sleep -Milliseconds 500  # Allow Windows to release the lock
+        # Ensure the extension exists before modifying it
+        if (!(Test-Path $extKeyPath)) {
+            Write-Host "❌ Skipping $ext`: No registry key found for this extension." -ForegroundColor Red
+            continue
+        }
 
-    # Now add the new command
-    cmd.exe /c "reg add `"$commandPath`" /f /ve /d `"$MenuText`"" | Out-Null
-    cmd.exe /c "reg add `"$commandPath`" /f /v ExplorerCommandHandler /d `"$CLSID`"" | Out-Null
+        # Ensure the shell key exists
+        if (!(Test-Path "$extKeyPath\shell")) {
+            Write-Host "🆕 Creating missing 'shell' key for $ext..." -ForegroundColor Yellow
+            New-Item -Path "$extKeyPath\shell" -Force | Out-Null
+        }
 
-    Write-Host "✅ ExplorerCommand registered successfully!" -ForegroundColor Green
+        Write-Host "🆕 Registering ExplorerCommand for: $ext at $commandPath" -ForegroundColor Cyan
+
+        # Remove existing entry if necessary
+        Remove-Item -Path $commandPath -Force -Recurse -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 500  # Allow Windows to release any locks
+
+        # Add new command entry
+        New-Item -Path $commandPath -Force | Out-Null
+        Set-ItemProperty -Path $commandPath -Name "(Default)" -Value $MenuText
+        Set-ItemProperty -Path $commandPath -Name "ExplorerCommandHandler" -Value $CLSID
+    }
+
+    Write-Host "✅ ExplorerCommand registered successfully for selected file types!" -ForegroundColor Green
 }
 
 function Unregister-ExplorerCommand {
@@ -194,7 +214,10 @@ function Unregister-ExplorerCommand {
         [string]$CLSID,
 
         [Parameter(Mandatory = $true)]
-        [string]$Verb
+        [string]$Verb,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$Extensions = @(".exe", ".msi", ".lnk", ".ps1", ".bat")  # Restrict to these
     )
 
     Write-Host "Unregistering Classic ExplorerCommand with CLSID: $CLSID" -ForegroundColor Yellow
@@ -208,12 +231,14 @@ function Unregister-ExplorerCommand {
         Write-Host "⚠️ CLSID not found in HKCR, skipping." -ForegroundColor Yellow
     }
 
-    # Remove ExplorerCommand registry entry (Use REG.EXE)
-    $commandPath = "HKEY_CLASSES_ROOT\*\shell\$Verb"
-    Write-Host "🗑 Removing ExplorerCommand at: $commandPath" -ForegroundColor Cyan
+    # Remove ExplorerCommand registry entry for specific file types
+    foreach ($ext in $Extensions) {
+        $commandPath = "HKEY_CLASSES_ROOT\$ext\shell\$Verb"
+        Write-Host "🗑 Removing ExplorerCommand for: $ext at $commandPath" -ForegroundColor Cyan
 
-    cmd.exe /c "reg delete `"$commandPath`" /f" | Out-Null
-    Start-Sleep -Milliseconds 500  # Ensure registry updates are processed
+        cmd.exe /c "reg delete `"$commandPath`" /f" | Out-Null
+        Start-Sleep -Milliseconds 500  # Ensure registry updates are processed
+    }
 
     Write-Host "✅ Classic ExplorerCommand unregistered successfully!" -ForegroundColor Cyan
 }
